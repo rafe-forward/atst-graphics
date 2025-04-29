@@ -833,7 +833,7 @@ function normalize( u, excludeLastComponent )
 function mix( u, v, s )
 {
     if ( typeof(s) !== "number" ) {
-        throw "mix: the last paramter " + s + " must be a number";
+        throw "mix: the last parameter " + s + " must be a number";
     }
     if(typeof(u)=='number'&&typeof(v)=='number') {
       return (1.0-s)*u + s*v;
