@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html>
+
+<body>
+
+<canvas id="gl-canvas" width="512" height="512"> </canvas>
+
+<p> </p>
+<button id="Music">Play/Pause Music</button>
+<div>
+    <label for="sliderX">Camera X:</label>
+    <input type="range" id="sliderX" min="-10" max="10" step="0.1" value="0">
+    <span id="sliderXValue">0</span>
+</div>
+<div>
+    <label for="sliderY">Camera Y:</label>
+    <input type="range" id="sliderY" min="-10" max="10" step="0.1" value="0">
+    <span id="sliderYValue">0</span>
+</div>
+<div>
+    <label for="sliderZ">Camera Z:</label>
+    <input type="range" id="sliderZ" min="-20" max="20" step="0.1" value="5">
+    <span id="sliderZValue">5</span>
+</div>
+<div> <!-- changes angle of the blasters-->
+    <label for="leftLegSlider">Blaster Angle:</label>
+    <input type="range" id="blasterSlider" min="-90" max="90" value="0">
+    <span id="leftLegSliderValue">0</span>
+</div>
+<div>
+    <label for="lightXSlider">Light Position X:</label>
+    <input type="range" id="lightXSlider" min="-10" max="10" value="2" step="0.1">
+    <span id="lightXValue">2.0</span>
+  </div>
+  <div>
+    <label for="lightYSlider">Light Position Y:</label>
+    <input type="range" id="lightYSlider" min="-10" max="10" value="2" step="0.1">
+    <span id="lightYValue">2.0</span>
+  </div>
+  <div>
+    <label for="lightZSlider">Light Position Z:</label>
+    <input type="range" id="lightZSlider" min="-10" max="10" value="2" step="0.1">
+    <span id="lightZValue">2.0</span>
+  </div>
+
+<div id = "controls" style="background-color:lightgray;color:black;padding:1px;">
+    <p> Controls: </p> 
+    <p>W: forward</p> 
+    <p>S: backward</p>
+    <p>Q: stop</p>
+    <p>R: blasters up</p>
+    <p>F: blasters down</p>
+</div>
+<!-- Shader Program 1 -->
+<script id="vertex-shader-1" type="x-shader/x-vertex">
+#version 300 es
+precision mediump float;
+
+// Attributes
+in vec4 aPosition;
+in vec4 aColor;
+in vec3 aNormal; // Changed from vec4 to vec3
+
+// Uniforms
+uniform mat4 uModelViewMatrix;
+uniform mat4 uProjectionMatrix;
+uniform mat3 uNormalMatrix;
+uniform vec4 uLightPosition;
+
+// Varyings
+out vec4 vColor;
+out vec3 vNormal;
+out vec3 vPosition;
+
+void main()
+{
+    gl_Position = uProjectionMatrix * uModelViewMatrix * aPosition;
+    vPosition = vec3(uModelViewMatrix * aPosition);
+    vNormal = normalize(uNormalMatrix * aNormal); 
+    vColor = aColor;
+}
+</script>
+
+<script id="fragment-shader-1" type="x-shader/x-fragment">
+#version 300 es
+precision mediump float;
+
+// Varyings
+in vec4 vColor;
+in vec3 vNormal;
+in vec3 vPosition;
+
+// Uniforms
+uniform vec4 uAmbientProduct;
+uniform vec4 uDiffuseProduct;
+uniform vec4 uSpecularProduct;
+uniform vec4 uLightPosition;
+uniform float uShininess;
+
+// Output
+out vec4 fColor;
+
+void main()
+{
+    // Lighting calculations
+    vec3 N = normalize(vNormal);
+    vec3 L = normalize(vec3(uLightPosition) - vPosition);
+    vec3 E = normalize(-vPosition);
+    vec3 H = normalize(L + E);
+
+    float Kd = max(dot(N, L), 0.0);
+    float Ks = pow(max(dot(N, H), 0.0), uShininess);
+
+    vec4 ambient = uAmbientProduct;
+    vec4 diffuse = Kd * uDiffuseProduct;
+    vec4 specular = Ks * uSpecularProduct;
+
+    fColor = ambient + diffuse + specular;
+    fColor = clamp(fColor, 0.0, 1.0);
+    fColor.a = 1.0;
+}
+</script>
+
+<!-- Shader Program 2 -->
+<script id="vertex-shader-2" type="x-shader/x-vertex">
+#version 300 es
+in vec4 position;
+in vec4 color;
+in vec3 aNormal;
+
+uniform mat4 uModelViewMatrix;
+uniform mat4 uProjectionMatrix;
+uniform mat3 uNormalMatrix;
+uniform vec4 uLightPosition;
+out vec4 vColor;
+out vec3 vNormal;
+out vec4 vPosition;
+
+void main() {
+    gl_Position = uProjectionMatrix * uModelViewMatrix * position;
+    vPosition = uModelViewMatrix * position;
+    vNormal = normalize(uNormalMatrix * aNormal);
+    vColor = color;
+}
+</script>
+
+<script id="fragment-shader-2" type="x-shader/x-fragment">
+#version 300 es
+precision mediump float;
+
+in vec4 vColor;
+in vec3 vNormal;
+in vec4 vPosition;
+
+uniform vec4 uAmbientProduct;
+uniform vec4 uDiffuseProduct;
+uniform vec4 uSpecularProduct;
+uniform vec4 uLightPosition;
+uniform float uShininess;
+
+out vec4 fColor;
+
+void main() {
+    vec3 N = normalize(vNormal);
+    vec3 L;
+    if (uLightPosition.w == 0.0) {
+        L = normalize(uLightPosition.xyz);
+    } else {
+        L = normalize(uLightPosition.xyz - vPosition.xyz);
+    }
+    vec3 E = normalize(-vPosition.xyz);
+    vec3 H = normalize(L + E);
+
+    float Kd = max(dot(L, N), 0.0);
+    vec4 diffuse = Kd * uDiffuseProduct;
+
+    float Ks = pow(max(dot(N, H), 0.0), uShininess);
+    vec4 specular = Ks * uSpecularProduct;
+
+    if (dot(L, N) < 0.0) {
+        specular = vec4(0.0);
+    }
+
+    fColor = uAmbientProduct + diffuse + specular;
+    fColor.a = 1.0;
+}
+</script>
+
+<script src="./common2/initShaders.js"></script>
+<script src="./common2/MVnew.js"></script>
+<script src="CG_F24_Program2_ ForwardRaphael.js"></script>
+
+</body>
+</html>
